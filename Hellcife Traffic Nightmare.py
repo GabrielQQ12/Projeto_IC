@@ -23,10 +23,9 @@ class Player(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self) 
         self.image = pygame.transform.scale(
-            pygame.image.load(os.path.join('graficos', 'clio_1.6.png')).convert_alpha(), 
-            (120, 160)
-        )
-        self.rect = self.image.get_rect(bottomleft=(290, 870))
+            pygame.image.load(os.path.join('graficos', 'clio_1.6.png')).convert_alpha(), (100, 150))
+        self.rect = self.image.get_rect(bottomleft =(300, 850))
+        self.mask = pygame.mask.from_surface(self.image)
         self.vel = 5
     
     def player_input(self): #controles
@@ -41,12 +40,11 @@ class Player(pygame.sprite.Sprite):
 
 class Obstaculo(pygame.sprite.Sprite):
     def __init__(self, escala, caminho, vel, x, y):
-        pygame.sprite.Sprite.__init__(self)  # Explicit initialization
+        pygame.sprite.Sprite.__init__(self)
         self.image = pygame.transform.scale(
-            pygame.image.load(caminho).convert_alpha(), 
-            escala
-        )
-        self.rect = self.image.get_rect(bottomleft=(x, y))
+            pygame.image.load(caminho).convert_alpha(), escala)
+        self.rect = self.image.get_rect(bottomleft =(x, y))
+        self.mask = pygame.mask.from_surface(self.image)
         self.velocidade = vel
     
     def update(self):
@@ -57,21 +55,21 @@ class Obstaculo(pygame.sprite.Sprite):
 class Carros(Obstaculo):
     def __init__(self, tipo, x, y):
         if tipo == 'kwid':
-            super().__init__((100, 120), os.path.join('graficos', 'kwid.png'), 5, x, y)
+            super().__init__((80, 120), os.path.join('graficos', 'kwid.png'), 5, x+10, y)
         elif tipo == 'Uno':
-            super().__init__((80, 120), os.path.join('graficos', 'Uno.png'), 4, x, y) 
+            super().__init__((80, 110), os.path.join('graficos', 'Uno.png'), 4, x+10, y) 
         elif tipo == 'Polo':
-            super().__init__((100, 120), os.path.join('graficos', 'Polo.png'), 4, x, y)
+            super().__init__((90, 110), os.path.join('graficos', 'Polo.png'), 4, x, y)
 
 class Bus(Obstaculo):
     def __init__(self, tipo, x, y):
         if tipo == 'amarelo':
-            super().__init__((130, 300), os.path.join('graficos', 'amarelinho.png'), 6, x, y)
+            super().__init__((120, 300), os.path.join('graficos', 'amarelinho.png'), 6, x, y)
         elif tipo == 'azul':
-            super().__init__((130, 300), os.path.join('graficos', 'azulao.png'), 6, x, y)
+            super().__init__((120, 300), os.path.join('graficos', 'azulao.png'), 6, x, y)
 class Buraco(Obstaculo):
     def __init__ (self, x, y):
-        super().__init__((80, 100), os.path.join('graficos', 'buraco.png'), 7, x, y)
+        super().__init__((70, 100), os.path.join('graficos', 'buraco.png'), 7, x, y)
 
 # criação de variaveis  e grupos necesária antes do inicio do loop
 player = pygame.sprite.GroupSingle()
@@ -84,10 +82,29 @@ spawn_timer = 0
 spawn_delay = 30
 ultima_faixa = None
 #função de colisões com objetos
-def colisao_obstaculos ():
-   if pygame.sprite.spritecollide(player.sprite, obs_ativos, True):
-       print("Bateu num kwid kkkkkkkkkkkkkkkkk")
+def colisao_obstaculos():
+    player_sprite = player.sprite
     
+    # Cria máscaras de colisão que contornam os pixeis da supeficie
+    player_mask = pygame.mask.from_surface(player_sprite.image)
+    
+    for obstaculo in obs_ativos:
+        obstaculo_mask = pygame.mask.from_surface(obstaculo.image)
+        
+        # Calcula o offset entre os sprites
+        offset_x = obstaculo.rect.left - player_sprite.rect.left
+        offset_y = obstaculo.rect.top - player_sprite.rect.top
+        
+        # Verifica colisão 
+        if player_mask.overlap(obstaculo_mask, (offset_x, offset_y)):
+            print("Bateu num kwid kkkkkkkkkkkkkkkkk")
+            obstaculo.kill()
+       
+#def score (): # calcula o score por ticks
+# 
+# 
+#def velocidade (score):
+#  
 
 
 #game loop
@@ -105,7 +122,7 @@ while running:
 
     # Sistema de spawn de obstaculos
     spawn_timer += 1
-    if spawn_timer >= spawn_delay and len(obs_ativos) < 5:
+    if spawn_timer >= spawn_delay and len(obs_ativos) < 4:
         spawn_timer = 0
         tipo_obstaculo = random.choices(["Carros", "Bus", "Buraco"], weights=[60, 20, 20], k=1)[0]
         
@@ -124,7 +141,7 @@ while running:
             subtipo = random.choice(TIPOS_OB['Bus'])
             novo_OBS = Bus(subtipo, faixa-10, -100)
         elif tipo_obstaculo == "Buraco":
-            novo_OBS = Buraco(faixa+10, -100)
+            novo_OBS = Buraco(faixa+15, -100)
         
         obs_ativos.add(novo_OBS)
 
