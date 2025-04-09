@@ -73,20 +73,34 @@ class Bus(Obstaculo):
 class Buraco(Obstaculo):
     def __init__ (self, x, y):
         super().__init__((70, 100), os.path.join('graficos', 'buraco.png'), 7, x, y)
+        
+class Coletaveis(Obstaculo):
+    def __init__(self, tipo, x, y):
+        self.tipo = tipo
+        if tipo == "Coração":
+            super().__init__((40, 40), os.path.join('graficos', 'heart.png'), 5, x+15, y)
+        elif tipo == "Estrela":
+            super().__init__((50, 50), os.path.join('graficos', 'star.png'), 5, x+10, y)
 
 # criação de variaveis  e grupos necesária antes do inicio do loop
 player = pygame.sprite.GroupSingle()
 player.add(Player())
 
 FAIXAS = [100, 200, 300, 400]
-TIPOS_OB = {'Carros': ["kwid", "Uno", "Polo"], 'Bus': ["amarelo", "azul"], 'Buraco': "buraco"}
+TIPOS_OB = {'Carros': ["kwid", "Uno", "Polo"], 'Bus': ["amarelo", "azul"], 'Buraco': "buraco", 'Coletaveis': ["Coração", "Estrela"] }
 obs_ativos = pygame.sprite.Group()
 spawn_timer = 0
 spawn_delay = 30
 ultima_faixa = None
+vidas = 3
+vidas_coletadas = 0
+estrelas_coletadas = 0
+cont_colisoes = 0
+pont_final = 0
 #função de colisões com objetos
 def colisao_obstaculos():
     player_sprite = player.sprite
+    global vidas, vidas_coletadas, estrelas_coletadas, estado, cont_colisoes, pont_final
     
     # Cria máscaras de colisão que contornam os pixeis da supeficie
     player_mask = pygame.mask.from_surface(player_sprite.image)
@@ -100,13 +114,28 @@ def colisao_obstaculos():
         
         # Verifica colisão 
         if player_mask.overlap(obstaculo_mask, (offset_x, offset_y)):
-            print("Bateu num kwid kkkkkkkkkkkkkkkkk")
-            obstaculo.kill()
+            if isinstance(obstaculo, Coletaveis):
+                if obstaculo.tipo == "Coração":
+                    if vidas < 3:
+                        vidas += 1
+                        vidas_coletadas += 1
+                    obstaculo.kill()
+                elif obstaculo.tipo == "Estrela":
+                    estrelas_coletadas += 1
+                    obstaculo.kill()
+            else:
+                vidas -= 1
+                cont_colisoes += 1
+                pont_final = pontuacao
+                obstaculo.kill()
+                if vidas == 0:
+                    estado = "game over"
+
+            
        
-def score (): # calcula o score por ticks, A cada 1s, é dado 10 pontos
-    pontos = (pygame.time.get_ticks() // 100)
-    txt_ponts = fonte.render(f"Pontos: {pontos}", True, (255, 255, 255))
-    screen.blit(txt_ponts, (20, 20))
+def score (stars): # calcula o score por ticks, A cada 1s, é dado 10 pontos
+    global start_time
+    pontos = (pygame.time.get_ticks() // 100) + (stars * 100) - (start_time // 100)
     return pontos
 #aumenta a velocidade do jogo de acordo com  a pontuação, deixando mais dificil com o passar do tempo
 def velocidade (pontos):
@@ -118,16 +147,28 @@ def velocidade (pontos):
 
 def hud ():
     hud_rect = pygame.Rect(0, 0, 600, 50)
-    s = pygame.Surface((600, 100), pygame.SRCALPHA)
+    s = pygame.Surface((600, 70), pygame.SRCALPHA)
     s.fill((150, 200, 220, 128))  # Preto com 50% de transparência
     screen.blit(s, hud_rect)
+    hud_coracao = pygame.transform.scale(pygame.image.load(os.path.join("graficos", "heart.png")).convert_alpha(), (35, 35))
+    hud_estrela = pygame.transform.scale(pygame.image.load(os.path.join("graficos", "star.png")).convert_alpha(), (35, 35))
+    for i in range(vidas):
+        screen.blit(hud_coracao, (20 + i * 40, 20))
+    screen.blit(hud_estrela, (500, 20))
+    screen.blit(fonte.render(str(pontuacao), True, (255, 255, 0)), (545, 25))                                                                                                          
+                                                                   
+start_time = 0                                                                                                        
 estado = "menu"
 def menu():
+    global vidas, pontuacao, vidas_coletadas, estrelas_coletadas, start_time, cont_colisoes
+    vidas = 3
+    pontuacao, vidas_coletadas, estrelas_coletadas, cont_colisoes = 0, 0, 0, 0
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             exit()
         if event.type == pygame.KEYDOWN:
+            start_time = pygame.time.get_ticks()
             return "jogo"
     
     # Renderização do menu (fora do for, acontece sempre)
@@ -139,13 +180,18 @@ def menu():
     pygame.display.update()
     clock.tick(60)
     return "menu"
-
-
+pontuacao = 0
+restart_time = 0
 running = True    
 #game loop
 while running:
     if estado == "menu":
         estado = menu()
+    elif estado == "game over":
+        print("GAME OVER")
+        print(f"Pontuação Final: {pont_final}")
+        print(f"Bateu em {cont_colisoes} kwid's, coletou {vidas_coletadas} vidas, {estrelas_coletadas} estrelas.")
+        estado = "menu"
     elif estado == "jogo":
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -160,7 +206,7 @@ while running:
         spawn_timer += 1
         if spawn_timer >= spawn_delay and len(obs_ativos) < 4:
             spawn_timer = 0
-            tipo_obstaculo = random.choices(["Carros", "Bus", "Buraco"], weights=[60, 20, 20], k=1)[0]
+            tipo_obstaculo = random.choices(["Carros", "Bus", "Buraco", "Coletaveis"], weights=[50, 20, 20, 10], k=1)[0]
             
             # Seleção de faixa que evita repetição
             faixas_disponiveis = FAIXAS.copy()
@@ -178,6 +224,12 @@ while running:
                 novo_OBS = Bus(subtipo, faixa-15, -100)
             elif tipo_obstaculo == "Buraco":
                 novo_OBS = Buraco(faixa+15, -100)
+            elif tipo_obstaculo == "Coletaveis":
+                if vidas >= 3:
+                    subtipo = "Estrela"
+                else:
+                    subtipo = random.choice(TIPOS_OB['Coletaveis'])
+                novo_OBS = Coletaveis(subtipo, faixa+20, -100)                                                                                                  
             
             obs_ativos.add(novo_OBS)
 
@@ -194,7 +246,7 @@ while running:
         player.draw(screen)
         obs_ativos.draw(screen)
         hud()
-        pontuacao = score()
+        pontuacao = score(estrelas_coletadas)
     
 
         colisao_obstaculos()
