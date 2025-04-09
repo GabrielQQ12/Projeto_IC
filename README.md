@@ -1,5 +1,6 @@
 # Projeto_IP
 Nome do Jogo: Hellcife Traffic Nightmare
+
 Desenvolvedores: hgfs, ktn, pgsa2
 
 Ideia: O objetivo deste projeto foi desenvolver um minigame arcade em Python utilizando a biblioteca Pygame, no qual o jogador deve desviar de obstáculos no trânsito caótico de uma cidade fictícia chamada Hellcife. O jogador deve sobreviver o maior tempo possível enquanto coleta itens e evita colisões.
